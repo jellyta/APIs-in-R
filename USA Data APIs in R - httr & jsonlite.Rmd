@@ -1,0 +1,73 @@
+---
+title: "APIs in R Vingette"
+author: "LTa"
+date: "14/08/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+The package 'httr' allows the user to pull data via RESTful APIs in R. An API stands for Application Programming Interface which is how the website containing the data sets interact with other applications like R. REST stands for REpresentational State Transfer which describes how the API format was written. In this case, the RESTful format uses syntax that closely mirrors HTTP. Being able to get data using APIs is one way of getting up-to-date data from the web. 
+
+Httr often pulls data in a format that is not in an R-friendly object like a JSON data frame that is easy to explore hence this package is often used in conjunction with JSONLITE which allows data to be piped into a format that is R-friendly.
+
+In this example, I will be pulling data from DataUSA.io as my team research project is on the ability to predict companies most at risk of data breaches and they are predominantly USA companies. This site contains a broad range of data related to the economy, population and industry which might be interesting to merge with the list of companies with a data breach. 
+ 
+Firstly we install the two packages and call them:
+
+```{r}
+install.packages("httr")
+install.packages("jsonlite")
+install.packages("dplyr")
+require(httr)
+require(jsonlite)
+
+
+```
+
+Every API has unique endpoints and parameters so it is necessary to read the documentation which can be found here: https://github.com/DataUSA/datausa-api/wiki
+
+A few quick start tips:
+- The parameter 'show=' should be used in conjunction with the attribute name which is found in brackets in the title (e.g. for Locations it is 'geo')
+- To see a quick list of all available attribute names go to: http://api.datausa.io/attrs/list/ 
+- The parameter 'sumlevel=' allows filtering of results.
+
+In this case I want to extract all data on occupations and socio-economic data so based on the documentation the call would be:
+
+```{r}
+Occ_Url <- "http://api.datausa.io/api/?show=soc&sumlevel=all"
+#soc from show=soc is the search term for occupations from the Attribute list
+#sumlevel = all shows complete list
+```
+
+By using httr::GET() it will give me details on whether the call was successful as well as basic informtion such as the format of the response and the first few lines of the data set. We are looking for a status of '200' to confirm that the call succeeded. Other common statuses include '500' for internal error and '403' means permission denied so basically we are only looking for a status of '200' before we can proceed.
+
+```{r}
+Occ_Url_Get <- httr::GET(Occ_Url)
+Occ_Url_Get
+```
+ 
+To get a better understanding of the data that we have retrieved in text format:
+
+```{r}
+httr::content(Occ_Url_Get, as = "text")
+```
+The text stil looks quite messy and difficult to make sense of so we will want to translate it into JSON and confirm the object in R is still a list :
+```{r}
+Occ_json <- jsonlite::fromJSON(Occ_Url)
+```
+Now that it is in JSON format we can see the structure of the data that we have retrieved as well as the headers to see if this is the content that we are expecting:
+```{r}
+Occ_json %>% str()
+Occ_json$headers
+```
+As the headers seem to make sense let's convert it to a tibble dataframe and use the headers as the column headers for ease of understanding:
+```{r}
+Occ_df <-tibble::as_tibble(Occ_json$data) %>% magrittr::set_colnames(value = Occ_json$headers)
+```
+Finally we can take a glimpse of the data frame that we have created which should make more sense and allow more exploration:
+```{r}
+Occ_df %>% glimpse()
+```
